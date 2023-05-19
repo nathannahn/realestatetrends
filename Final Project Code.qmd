@@ -1,0 +1,175 @@
+---
+title: "Untitled"
+format: html
+---
+
+```{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import skew, kurtosis
+
+df = pd.read_csv('Real_Estate_Sales_2001-2020_GL.csv')
+
+
+# Remove data where the cost is less than 100
+df = df[df['Non Use Code'].notnull()]
+
+freq = df['List Year'].value_counts().sort_index()
+
+freq.plot(kind='bar')
+plt.title('Amount of Sales per List Year (Filtered by Non Use Code)')
+plt.xlabel('List Year')
+plt.ylabel('Frequency')
+
+# calculate skewness and kurtosis
+skewness = skew(freq)
+kurt = kurtosis(freq)
+
+print(f"Skewness: {skewness:.2f}")
+print(f"Kurtosis: {kurt:.2f}")
+
+
+
+```
+```{python}
+import pandas as pd
+from scipy.stats import kruskal
+
+# Group data by listing year and calculate median sales ratio
+grouped = df.groupby('List Year')['Sales Ratio'].median()
+
+# Convert groupby object back into DataFrame and drop NaN values
+data = pd.DataFrame({'List Year': grouped.index, 'Sales Ratio': grouped.values}).dropna()
+
+# Run Kruskal-Wallis test
+stat, p = kruskal(*[group['Sales Ratio'] for name, group in data.groupby('List Year')])
+
+# Print results
+print('Kruskal-Wallis test:')
+print('H-statistic = {:.3f}'.format(stat))
+print('p-value = {:.3f}'.format(p))
+
+if p < 0.05:
+    print('Medians of List Years are statistically different')
+else:
+    print('Not enough evidence to conclude that the medians of List Years are not statistically different')
+```
+
+```{python}
+
+# List of years to analyze
+years = [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020]
+
+# Convert "Year" column to integer
+df["List Year"] = df["List Year"].astype(int)
+
+# Create an empty DataFrame to store the results
+results_df = pd.DataFrame(columns=["List Year", "Count", "Mean", "Std Dev", "Median"])
+
+df['Profit'] = df['Sale Amount'] - df['Assessed Value']
+
+## Loop over the years and calculate the descriptive statistics for Sales Ratio
+for year in years:
+    year_df = df[df["List Year"] == year]
+    sales_ratio_stats = year_df["Profit"].describe()
+    results_df = results_df.append({
+        "List Year": year,
+        "Count": sales_ratio_stats["count"].astype(int),
+        "Mean": sales_ratio_stats["mean"],
+        "Std Dev": sales_ratio_stats["std"],
+        "Median": sales_ratio_stats["50%"],
+    }, ignore_index=True)
+
+# Print the results DataFrame
+print(results_df['Count'])
+#print(results_df.to_latex(index=False)) 
+
+```
+
+```{python}
+df.head()
+```
+
+```{python}
+from scipy.stats import shapiro
+from scipy.stats import kstest
+
+
+# extract the column to test
+data = df['Sales Ratio']
+
+# perform Shapiro-Wilk test
+stat, p = shapiro(data)
+
+# print the results
+print('Shapiro-Wilk test statistic:', stat)
+print('p-value:', p)
+if p > 0.05:
+    print('Data is likely normally distributed')
+else:
+    print('Data is not likely normally distributed')
+
+
+```
+
+```{python}
+
+
+import pandas as pd
+from scipy.stats import kruskal
+
+
+# Run Kruskal-Wallis test
+stat, p = kruskal(results_df['List Year'], results_df['Count'])
+
+# Print results
+print('Kruskal-Wallis test:')
+print('H-statistic = {:.3f}'.format(stat))
+print('p-value = {:.3f}'.format(p))
+
+if p < 0.05:
+    print('Data is likely statistically significiant')
+else:
+    print('Data is not likely statistically significant')
+
+
+
+```
+```{python}
+import pandas as pd
+from plotnine import *
+
+
+# Create Q-Q plot using ggplot2
+ggplot(df, aes(sample='Sales Ratio')) + \
+    stat_qq() + \
+    ggtitle("Q-Q Plot for Sales Ratio")
+```
+
+```{python}
+import seaborn as sns
+
+
+# Create Boxplot
+
+YearDayPlot = sns.boxplot(x='Residential Type', y="Sales Ratio", data=df)
+YearDayPlot.set(title = "Boxplot of Durations from Boroughs on Days of the Week", ylabel = "Sales Ratio")
+
+```
+
+```{python}
+import pandas as pd
+from scikit_posthocs import posthoc_dunn
+
+
+# Perform post hoc Dunn's test
+dunn_results = posthoc_dunn(results_df, val_col='Count', group_col='List Year')
+
+# Set values greater than 0.05 to 0
+dunn_results[dunn_results > 0.05] = 0
+
+# Create heatmap
+sns.heatmap(dunn_results, cmap="coolwarm", annot=True, fmt=".2f", annot_kws={'fontsize': 5})
+
+```
